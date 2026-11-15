@@ -135,6 +135,9 @@ alone keeps USB flashing alive.
 
 ## Microphones
 
+The [AEC backend](AEC.md) captures the playback reference over TDM. The stock
+ESPHome limitations below explain why it needs a different audio driver.
+
 **Two physical mics.** Per the schematic:
 
 | ES7210 ch | Wired to |
@@ -198,7 +201,7 @@ that, **ESPHome cannot run a single `i2s_audio` bus full-duplex**: a microphone
 and a speaker on the same bus each call `i2s_new_channel` on the port, and the
 second fails at runtime with `Parent bus is busy` (the speaker then crackles).
 
-The layout this firmware uses, all on stock ESPHome components:
+The original stock ESPHome layout, before the [AEC backend](AEC.md):
 
 - **Two `i2s_audio` buses** (two I2S ports) over the shared GPIO13/14 (with
   `allow_other_uses`). The **mic bus is the I2S master**, the **speaker bus is a

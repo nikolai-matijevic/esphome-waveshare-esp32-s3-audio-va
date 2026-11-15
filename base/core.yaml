@@ -7,12 +7,9 @@
 # the TCA9555 expander) and voice timers + an alarm clock.
 #
 # AUDIO LAYOUT
-# The DAC and ADC share BCLK/LRCLK pins. Two I2S buses (two ports) ride the
-# shared pins: the mic bus is I2S master (always capturing, so it drives a
-# continuous clock) and the speaker bus is a slave that reads it. The ES8311
-# (DAC) and ES7210 (ADC) are stock and slave to the mic's clock. Capture and
-# playback run at once, on stock ESPHome, with no patched es8311 / force_master.
-# The full story is in the audio section below. Pinout: docs/HARDWARE.md.
+# One full-duplex TDM bus captures the mic and analog playback reference.
+# ESP-SR AEC feeds a 16 kHz stream to the wake word and Assist; playback is
+# 48 kHz. The slot layout and bypass switch are documented in docs/AEC.md.
 ###############################################################################
 
 substitutions:
@@ -81,7 +78,7 @@ substitutions:
 esphome:
   name: ${name}
   friendly_name: ${friendly_name}
-  min_version: 2026.8.0     # esp32_rmt_led_strip channel_colors
+  min_version: 2026.10.2    # audio-stack ring-buffer API compatibility
   on_boot:
     # Publish a "no timer" placeholder and paint the ring as early as we can, so
     # the device shows life while Wi-Fi/API are still coming up.
@@ -111,12 +108,7 @@ esphome:
         - lambda: |-
             setenv("TZ", id(saved_time_zone).c_str(), 1);
             tzset();
-        # Push the mic gain restored from flash into the ES7210. The codec boots
-        # with `mic_gain` from audio_adc, so without this a saved value would show
-        # in HA while the hardware sat at the default.
-        - lambda: |-
-            id(adc_mic).set_mic_gain(id(mic_gain_db).state);
-            ESP_LOGI("mic", "[MIC] restored ES7210 gain -> %.1f dB", id(mic_gain_db).state);
+        # Mic and playback-reference gains are fixed at 24 dB in the codec config.
         # First boot only: start the wake word threshold slider at the active
         # model's own default cutoff (manifest or YAML), not at the fixed
         # initial_value.
@@ -276,70 +268,63 @@ time:
     on_time_sync:
       - script.execute: publish_current_time
 
-# The DAC and ADC share BCLK/LRCLK pins, but ESPHome's i2s_audio cannot run one
-# bus full-duplex (the mic and speaker each call i2s_new_channel on the port, and
-# the second fails with "Parent bus is busy"). So we use TWO buses (two I2S ports)
-# over the shared pins:
-#   - i2s_input  = the MIC bus, I2S MASTER. The mic is always capturing (wake
-#     word), so it drives BCLK/LRCLK/MCLK continuously. Using the ESP as master
-#     is what makes the mic get a correct-rate stream (a codec-mastered clock via
-#     force_master gave the mic garbage and killed wake word).
-#   - i2s_output = the SPEAKER bus, I2S SLAVE. It reads the mic's clock and only
-#     needs to output data, so it never contends for a port of its own.
-# The ES8311 (DAC) and ES7210 (ADC) are stock and slave to the mic's clock; no
-# patched es8311 / force_master is needed.
-i2s_audio:
-  - id: i2s_input
-    i2s_mclk_pin: ${i2s_mclk}
-    i2s_bclk_pin:
-      number: ${i2s_bclk}
-      allow_other_uses: true
-    i2s_lrclk_pin:
-      number: ${i2s_lrclk}
-      allow_other_uses: true
-  - id: i2s_output
-    i2s_bclk_pin:
-      number: ${i2s_bclk}
-      allow_other_uses: true
-    i2s_lrclk_pin:
-      number: ${i2s_lrclk}
-      allow_other_uses: true
+# Experimental coordinated full-duplex TDM backend; see docs/AEC.md.
+external_components:
+  - source: github://n-IA-hane/esphome-audio-stack@v2026.11.0
+    components: [esp_audio_stack, esp_aec]
 
-audio_adc:
-  - platform: es7210
-    id: adc_mic
-    i2c_id: internal_i2c
-    # Runtime gain lives on the `mic_gain_db` number below (3 dB steps, the
-    # resolution of the ES7210 gain register).
-    mic_gain: 24db
+esp_aec:
+  id: aec_processor
+  sample_rate: 16000
+  mode: sr_low_cost
+  filter_length: 4
 
-audio_dac:
-  - platform: es8311
-    id: es8311_dac
+esp_audio_stack:
+  id: aec_audio_stack
+  processor_id: aec_processor
+  sample_rate: 48000
+  output_sample_rate: 16000
+  bits_per_sample: 16
+  slot_bit_width: 16
+  i2s_mclk_pin: ${i2s_mclk}
+  i2s_bclk_pin: ${i2s_bclk}
+  i2s_lrclk_pin: ${i2s_lrclk}
+  i2s_din_pin: ${i2s_din}
+  i2s_dout_pin: ${i2s_dout}
+  use_tdm_reference: true
+  tdm_total_slots: 4
+  tdm_mic_slots: [0]
+  tdm_ref_slot: 1
+  tdm_tx_slot: 0
+  codec:
     i2c_id: internal_i2c
+    input:
+      type: es7210
+      address: 0x40
+      mic_selected: 0x0F
+      gain_db: 24.0
+      ref_channel: 2
+      ref_gain_db: 24.0
+    output:
+      type: es8311
+      address: 0x18
+      use_mclk: true
+      no_dac_ref: true
+  buffers_in_psram: true
+  on_amplifier_required:
+    - switch.turn_on: amp_enable
 
 microphone:
-  - platform: i2s_audio
+  - platform: esp_audio_stack
     id: i2s_mics
-    i2s_audio_id: i2s_input
-    i2s_din_pin: ${i2s_din}
-    adc_type: external
-    pdm: false
-    # default i2s_mode: primary -> this bus masters the shared clock.
-    # 16-bit on purpose: as master the mic defines the frame's slot width, and
-    # the i2s_audio default is 32-bit. The ES8311/speaker are 16-bit, so a
-    # 32-bit frame doubles the bit clock they expect and playback comes out as
-    # noise. Matching 16-bit aligns the whole bus (the ES7210 is 16-bit too).
-    bits_per_sample: 16bit
+    esp_audio_stack_id: aec_audio_stack
 
 speaker:
-  - platform: i2s_audio
+  - platform: esp_audio_stack
     id: i2s_audio_speaker
-    i2s_audio_id: i2s_output
-    i2s_dout_pin: ${i2s_dout}
-    i2s_mode: secondary          # slave to the mic bus's clock
-    dac_type: external
-    audio_dac: es8311_dac
+    esp_audio_stack_id: aec_audio_stack
+    sample_rate: 48000
+    bits_per_sample: 16
     timeout: never
     buffer_duration: 100ms
 
@@ -1260,6 +1245,19 @@ select:
 
 switch:
   - platform: template
+    id: aec_test_enabled
+    name: "AEC test enabled"
+    entity_category: config
+    optimistic: true
+    restore_mode: ALWAYS_ON
+    turn_on_action:
+      - lambda: |-
+          if (!id(init_in_progress)) id(aec_audio_stack).set_processor_enabled(true);
+    turn_off_action:
+      - lambda: |-
+          if (!id(init_in_progress)) id(aec_audio_stack).set_processor_enabled(false);
+
+  - platform: template
     id: diag_disable_mic
     name: "Diag: disable microphone"
     icon: mdi:microphone-settings
@@ -1410,34 +1408,6 @@ switch:
       - script.execute: control_leds
 
 number:
-  - platform: template
-    id: mic_gain_db
-    name: "Mic gain (ES7210)"
-    icon: mdi:microphone-settings
-    entity_category: config
-    unit_of_measurement: dB
-    min_value: 0
-    # The ES7210 gain register moves in 3 dB steps up to 33 dB (then 34.5, 36
-    # and 37.5), so a finer slider step would leave every second position a
-    # no-op. 36 dB is the highest value that sits on the 3 dB grid.
-    max_value: 36
-    step: 3
-    restore_value: true
-    initial_value: 24
-    mode: slider
-    # Without `optimistic`, a template number with only a set_action never
-    # publishes the new value back: the slider snapped back to 24 dB in HA even
-    # though the ES7210 had already been reprogrammed. The restored value is
-    # applied to the codec in on_boot (-100), since TemplateNumber::setup() only
-    # publishes it and does not run set_action.
-    optimistic: true
-    set_action:
-      - lambda: |-
-          id(adc_mic).set_mic_gain(x);
-      - logger.log:
-          format: "[MIC] ES7210 gain -> %.1f dB"
-          args: ["x"]
-
   # Detection threshold used when "Wake word sensitivity" is set to "Custom".
   # It applies to whichever wake word is active. On first boot it is seeded
   # from the active model's default cutoff (on_boot).

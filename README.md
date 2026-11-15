@@ -21,7 +21,7 @@ which silently removes any <img> placed inside it. -->
 
 ![Trailer: the voice assistant, the LED ring animations and the Home Assistant controls](docs/trailer.webp)
 
-> **Status: stable (v1.2.0).** Wake word, STT/TTS, clean playback and the LED
+> **Status: experimental AEC.** Wake word, STT/TTS, clean playback and the LED
 > ring are confirmed on-device. Full docs are in the
 > [Wiki](https://github.com/MichalZaniewicz/esphome-waveshare-esp32-s3-audio-va/wiki);
 > the release history is in [CHANGELOG.md](CHANGELOG.md).
@@ -57,7 +57,7 @@ You  ──▶  Waveshare ESP32-S3  ──▶  Home Assistant Assist
   (toggleable, and it also settles the amp so the ring boots silent).
 - **Night mode**: one switch dims the ring to its own brightness and skips the
   wake beep and boot chime. Drive it from any Home Assistant automation.
-- **Tunable live from HA**: the wake word, microphone mute, ES7210 mic gain, LED
+- **Tunable live from HA**: the wake word, microphone mute, LED
   brightness and wake-word sensitivity are all entities, so there's no
   reflashing to tune it.
 
@@ -65,7 +65,7 @@ https://github.com/user-attachments/assets/3236cd4f-7184-4eee-a16a-0db6fe1603a3
 
 ## Quick start
 
-> Requires **ESPHome 2026.8.0+**.
+> Requires **ESPHome 2026.10.2+**. See [AEC setup](docs/AEC.md) for the experimental audio backend.
 
 1. Copy `secrets.example.yaml` to `secrets.yaml` and fill in your Wi-Fi. The
    native API is unencrypted by default; enable encryption in `base/core.yaml`
@@ -85,7 +85,7 @@ https://github.com/user-attachments/assets/3236cd4f-7184-4eee-a16a-0db6fe1603a3
 5. Say "Alexa". The ring should go violet. To use another wake word, change
    **Wake word** on the device page (see [Wake words](#wake-words)).
 
-The example config tracks `main` with `refresh: 0s`, so every build fetches the
+The example config tracks `aec` with `refresh: 0s`, so every build fetches the
 latest version. To update, just run `esphome run waveshare-va.yaml` (or
 **Install** in the dashboard). After upgrading ESPHome itself, run
 `esphome clean waveshare-va.yaml` first if the build fails.
@@ -109,19 +109,11 @@ pins**, and only one device can drive those clocks. ESPHome also cannot run a
 single I2S bus full-duplex: a microphone and a speaker on one bus each try to
 init the port, and the second fails with "Parent bus is busy".
 
-The layout that works, all on **stock ESPHome components**:
-
-- **Two I2S buses** (two ports) over the shared pins. The **mic bus is the I2S
-  master**: it is always capturing for the wake word, so it drives BCLK/LRCLK/MCLK
-  continuously. The **speaker bus is a slave** that reads the mic's clock, so it
-  never needs a port of its own to master.
-- The ES8311 and ES7210 are stock and slave to the mic's clock.
-- The mic is pinned to **16-bit** (the i2s_audio default is 32-bit); since the
-  mic is master it sets the frame's slot width, and a 32-bit frame against the
-  16-bit DAC comes out as noise.
-
-This gives simultaneous capture + playback with no custom component. The
-annotated config is in the audio section of `base/core.yaml`.
+The audio backend uses one full-duplex TDM bus from
+`n-IA-hane/esphome-audio-stack` with ESP-SR acoustic echo cancellation.
+Playback runs at 48 kHz; the processed microphone stream runs at 16 kHz.
+See [AEC setup](docs/AEC.md) for the slot layout, bypass switch and test status.
+The implementation is in `base/core.yaml`.
 
 ## Repository layout
 
@@ -146,7 +138,7 @@ skill/
 ## Configuration
 
 Everything worth changing day to day is a Home Assistant entity, not a config
-edit: mic gain, LED brightness, the ring animation per assistant phase
+edit: LED brightness, the ring animation per assistant phase
 (Listening / Thinking / Replying effect), the wake word and its sensitivity,
 night mode, wake sound, boot sound, microphone mute.
 
