@@ -7,12 +7,9 @@
 #
 #   esphome run waveshare-va.yaml
 #
-# Everything else - the core config - is pulled
-# from GitHub at compile time (see the `packages:` block), so this is the only
-# file you ever maintain. To pick up the latest changes later:
-#
-#   esphome clean waveshare-va.yaml   # clears the package cache
-#   esphome run   waveshare-va.yaml
+# Packages are fetched from the ble branch of the fork on every build.
+# With refresh: 0s, a plain Install picks up config updates; no clean build
+# is needed. See the `packages:` block below.
 # =============================================================================
 
 substitutions:
@@ -43,11 +40,12 @@ substitutions:
 
 packages:
   core:
-    url: https://github.com/MichalZaniewicz/esphome-waveshare-esp32-s3-audio-va
-    ref: main
+    url: https://github.com/nikolai-matijevic/esphome-waveshare-esp32-s3-audio-va
+    ref: ble
     files:
       - base/core.yaml
-    refresh: 0s      # fetch the latest main on every build
+      - base/ble-beacon.yaml
+    refresh: 0s      # fetch the branch on every build
 
 # Wi-Fi and the API key come from your local secrets.yaml.
 

@@ -1,0 +1,16 @@
+substitutions:
+  beacon_uuid: "91e2b670-55a1-4e18-87e6-095fa7c8d132"
+  beacon_major: '1'
+  beacon_minor: '1'
+  beacon_tx_power: '0'
+  beacon_measured_power: '-59'
+
+esp32_ble_beacon:
+  type: iBeacon
+  uuid: ${beacon_uuid}
+  major: ${beacon_major}
+  minor: ${beacon_minor}
+  min_interval: 100ms
+  max_interval: 150ms
+  tx_power: ${beacon_tx_power}
+  measured_power: ${beacon_measured_power}

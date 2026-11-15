@@ -42,7 +42,7 @@ jobs:
         run: pip install "esphome${{ inputs.esphome_version && format('=={0}', inputs.esphome_version) || '' }}" pyyaml
 
       - name: Offline validation
-        run: python scripts/validate.py base/core.yaml
+        run: python scripts/validate.py base/core.yaml base/ble-beacon.yaml
 
       - name: Placeholder secrets
         run: cp secrets.example.yaml ci/secrets.yaml

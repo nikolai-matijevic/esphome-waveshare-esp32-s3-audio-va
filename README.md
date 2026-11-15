@@ -63,6 +63,12 @@ You  ──▶  Waveshare ESP32-S3  ──▶  Home Assistant Assist
 
 https://github.com/user-attachments/assets/3236cd4f-7184-4eee-a16a-0db6fe1603a3
 
+## Room beacons
+
+The board also advertises an **iBeacon** for phone-based room detection. Set a
+unique minor for each room; the voice assistant works as before. See
+[BLE room beacons](docs/BLE-ROOMS.md) for identifiers, calibration and phone setup.
+
 ## Quick start
 
 > Requires **ESPHome 2026.8.0+**.
@@ -85,7 +91,7 @@ https://github.com/user-attachments/assets/3236cd4f-7184-4eee-a16a-0db6fe1603a3
 5. Say "Alexa". The ring should go violet. To use another wake word, change
    **Wake word** on the device page (see [Wake words](#wake-words)).
 
-The example config tracks `main` with `refresh: 0s`, so every build fetches the
+The example config tracks `ble` with `refresh: 0s`, so every build fetches the
 latest version. To update, just run `esphome run waveshare-va.yaml` (or
 **Install** in the dashboard). After upgrading ESPHome itself, run
 `esphome clean waveshare-va.yaml` first if the build fails.
