@@ -16,6 +16,8 @@
 ###############################################################################
 
 substitutions:
+  # The ADC, DAC and both I2S endpoints share one physical sample rate.
+  physical_sample_rate: "48000"
   name: waveshare-va
   friendly_name: "Waveshare Voice"
 
@@ -81,7 +83,7 @@ substitutions:
 esphome:
   name: ${name}
   friendly_name: ${friendly_name}
-  min_version: 2026.8.0     # esp32_rmt_led_strip channel_colors
+  min_version: 2026.10.2    # microphone resampler
   on_boot:
     # Publish a "no timer" placeholder and paint the ring as early as we can, so
     # the device shows life while Wi-Fi/API are still coming up.
@@ -308,6 +310,7 @@ i2s_audio:
 audio_adc:
   - platform: es7210
     id: adc_mic
+    sample_rate: ${physical_sample_rate}
     i2c_id: internal_i2c
     # Runtime gain lives on the `mic_gain_db` number below (3 dB steps, the
     # resolution of the ES7210 gain register).
@@ -316,11 +319,13 @@ audio_adc:
 audio_dac:
   - platform: es8311
     id: es8311_dac
+    sample_rate: ${physical_sample_rate}
     i2c_id: internal_i2c
 
 microphone:
   - platform: i2s_audio
     id: i2s_mics
+    sample_rate: ${physical_sample_rate}
     i2s_audio_id: i2s_input
     i2s_din_pin: ${i2s_din}
     adc_type: external
@@ -332,9 +337,16 @@ microphone:
     # noise. Matching 16-bit aligns the whole bus (the ES7210 is 16-bit too).
     bits_per_sample: 16bit
 
+  # Keep wake word and Assist at 16 kHz while the physical bus runs at 48 kHz.
+  - platform: resampler
+    id: voice_mic
+    microphone: i2s_mics
+    sample_rate: 16000
+
 speaker:
   - platform: i2s_audio
     id: i2s_audio_speaker
+    sample_rate: ${physical_sample_rate}
     i2s_audio_id: i2s_output
     i2s_dout_pin: ${i2s_dout}
     i2s_mode: secondary          # slave to the mic bus's clock
@@ -440,7 +452,7 @@ media_player:
 # that are not selected are not loaded, so the extra ones cost flash, not RAM.
 micro_wake_word:
   id: mww
-  microphone: i2s_mics
+  microphone: voice_mic
   stop_after_detection: false
   models:
     - model: https://github.com/esphome/micro-wake-word-models/raw/main/models/v2/alexa.json
@@ -498,7 +510,7 @@ micro_wake_word:
 
 voice_assistant:
   id: va
-  microphone: i2s_mics
+  microphone: voice_mic
   media_player: external_media_player
   micro_wake_word: mww
   use_wake_word: false

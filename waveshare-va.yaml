@@ -7,12 +7,8 @@
 #
 #   esphome run waveshare-va.yaml
 #
-# Everything else - the core config - is pulled
-# from GitHub at compile time (see the `packages:` block), so this is the only
-# file you ever maintain. To pick up the latest changes later:
-#
-#   esphome clean waveshare-va.yaml   # clears the package cache
-#   esphome run   waveshare-va.yaml
+# Packages are fetched from the audio-48khz branch of the fork on every build.
+# A plain Install picks up config updates; no clean build is needed.
 # =============================================================================
 
 substitutions:
@@ -33,9 +29,12 @@ substitutions:
   # Set to 'true' only if your SSID is hidden.
   hidden_ssid: 'false'
 
+  # Shared ADC/DAC/I2S rate. Set to 16000 for a matched playback comparison.
+  # physical_sample_rate: '48000'
+
   # Boot chime played once on connect to Home Assistant. A sound ships with the
   # firmware; uncomment to use your own (any URL or local MP3/FLAC/WAV). The
-  # board plays back at 16 kHz mono, so a small 16 kHz mono file is plenty.
+  # board plays back at 48 kHz mono; lower-rate chimes are resampled.
   # boot_sound_file: https://example.com/my-chime.mp3
 
   # Mic gain, LED brightness, wake-word sensitivity and the alarm are all
@@ -43,11 +42,11 @@ substitutions:
 
 packages:
   core:
-    url: https://github.com/MichalZaniewicz/esphome-waveshare-esp32-s3-audio-va
-    ref: main
+    url: https://github.com/nikolai-matijevic/esphome-waveshare-esp32-s3-audio-va
+    ref: audio-48khz
     files:
       - base/core.yaml
-    refresh: 0s      # fetch the latest main on every build
+    refresh: 0s      # fetch the branch on every build
 
 # Wi-Fi and the API key come from your local secrets.yaml.
 

@@ -65,7 +65,7 @@ https://github.com/user-attachments/assets/3236cd4f-7184-4eee-a16a-0db6fe1603a3
 
 ## Quick start
 
-> Requires **ESPHome 2026.8.0+**.
+> Requires **ESPHome 2026.10.2+**.
 
 1. Copy `secrets.example.yaml` to `secrets.yaml` and fill in your Wi-Fi. The
    native API is unencrypted by default; enable encryption in `base/core.yaml`
@@ -85,7 +85,7 @@ https://github.com/user-attachments/assets/3236cd4f-7184-4eee-a16a-0db6fe1603a3
 5. Say "Alexa". The ring should go violet. To use another wake word, change
    **Wake word** on the device page (see [Wake words](#wake-words)).
 
-The example config tracks `main` with `refresh: 0s`, so every build fetches the
+The example config tracks `audio-48khz` with `refresh: 0s`, so every build fetches the
 latest version. To update, just run `esphome run waveshare-va.yaml` (or
 **Install** in the dashboard). After upgrading ESPHome itself, run
 `esphome clean waveshare-va.yaml` first if the build fails.
@@ -119,6 +119,11 @@ The layout that works, all on **stock ESPHome components**:
 - The mic is pinned to **16-bit** (the i2s_audio default is 32-bit); since the
   mic is master it sets the frame's slot width, and a 32-bit frame against the
   16-bit DAC comes out as noise.
+
+The ADC, DAC and both physical I2S endpoints run at **48 kHz**. A microphone
+resampler supplies **16 kHz** to the wake word and Assist. Gain, bit depth,
+buffer sizes and the two-bus layout stay the same. See
+[48 kHz audio](docs/AUDIO.md) for setup and listening checks.
 
 This gives simultaneous capture + playback with no custom component. The
 annotated config is in the audio section of `base/core.yaml`.

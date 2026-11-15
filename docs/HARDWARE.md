@@ -193,6 +193,9 @@ unavailable.
 
 ### Shared I2S clocks
 
+The physical endpoints run at 48 kHz; a microphone resampler keeps the voice
+stream at 16 kHz. See [48 kHz audio](AUDIO.md).
+
 ES8311 and ES7210 share BCLK/LRCK, so only one device may drive them. On top of
 that, **ESPHome cannot run a single `i2s_audio` bus full-duplex**: a microphone
 and a speaker on the same bus each call `i2s_new_channel` on the port, and the
