@@ -43,11 +43,11 @@ substitutions:
 
 packages:
   core:
-    url: https://github.com/MichalZaniewicz/esphome-waveshare-esp32-s3-audio-va
-    ref: main
+    url: https://github.com/nikolai-matijevic/esphome-waveshare-esp32-s3-audio-va
+    ref: codex/aec-speexdsp-48khz
     files:
       - base/core.yaml
-    refresh: 0s      # fetch the latest main on every build
+    refresh: 0s      # fetch this branch on every build
 
 # Wi-Fi and the API key come from your local secrets.yaml.
 

@@ -1,0 +1,63 @@
+import esphome.codegen as cg
+from esphome.components import audio, speaker
+import esphome.config_validation as cv
+import esphome.final_validate as fv
+from esphome.const import CONF_BITS_PER_SAMPLE, CONF_ID, CONF_NUM_CHANNELS, CONF_SAMPLE_RATE
+
+from . import AECSpeexDspComponent, aec_speexdsp_ns
+
+CONF_AEC_SPEEXDSP_ID = "aec_speexdsp_id"
+
+AECSpeexDspSpeaker = aec_speexdsp_ns.class_(
+    "AECSpeexDspSpeaker", speaker.Speaker, cg.Component
+)
+
+
+def _set_stream_limits(config):
+    audio.set_stream_limits(
+        min_bits_per_sample=16,
+        max_bits_per_sample=16,
+        min_channels=1,
+        max_channels=2,
+        min_sample_rate=config[CONF_SAMPLE_RATE],
+        max_sample_rate=config[CONF_SAMPLE_RATE],
+    )(config)
+    return config
+
+
+CONFIG_SCHEMA = cv.All(
+    speaker.SPEAKER_SCHEMA.extend(
+        {
+            cv.GenerateID(): cv.declare_id(AECSpeexDspSpeaker),
+            cv.GenerateID(CONF_AEC_SPEEXDSP_ID): cv.use_id(AECSpeexDspComponent),
+            cv.Optional(CONF_BITS_PER_SAMPLE, default=16): cv.one_of(16),
+            cv.Optional(CONF_NUM_CHANNELS, default=1): cv.one_of(1, 2),
+            cv.Optional(CONF_SAMPLE_RATE, default=16000): cv.one_of(16000, 48000),
+        }
+    ).extend(cv.COMPONENT_SCHEMA),
+    _set_stream_limits,
+)
+
+
+async def to_code(config):
+    var = cg.new_Pvariable(config[CONF_ID])
+    await cg.register_component(var, config)
+    await speaker.register_speaker(var, config)
+    parent = await cg.get_variable(config[CONF_AEC_SPEEXDSP_ID])
+    cg.add(var.set_parent(parent))
+    cg.add(parent.set_speaker(var))
+
+
+def _validate_rates(config):
+    full = fv.full_config.get()
+    parent = full.get_config_for_path(full.get_path_for_id(config[CONF_AEC_SPEEXDSP_ID])[:-1])
+    rate = parent["physical_sample_rate"]
+    if config[CONF_SAMPLE_RATE] != rate:
+        raise cv.Invalid("speaker sample_rate must match the AEC physical_sample_rate")
+    if "audio_dac" in config:
+        dac = full.get_config_for_path(full.get_path_for_id(config["audio_dac"])[:-1])
+        if dac.get(CONF_SAMPLE_RATE) != rate:
+            raise cv.Invalid("DAC sample_rate must match the AEC physical_sample_rate")
+    return config
+
+FINAL_VALIDATE_SCHEMA = _validate_rates

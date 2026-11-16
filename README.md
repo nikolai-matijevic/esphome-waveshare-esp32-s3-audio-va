@@ -5,7 +5,7 @@
 A **Home Assistant voice satellite** running on the
 [Waveshare ESP32-S3-AUDIO-Board](https://www.waveshare.com/esp32-s3-audio-board.htm),
 the little AI smart-speaker devkit with a dual-mic array, an ES8311 codec, three
-buttons and a 7-LED RGB ring. Pure ESPHome, no custom C firmware: an always-on
+buttons and a 7-LED RGB ring. ESPHome with the maintainer’s SpeexDSP AEC backend and a 48 kHz enhancement: an always-on
 core you pull as a package, plus one thin config file you actually edit.
 
 > [!TIP]
@@ -21,7 +21,8 @@ which silently removes any <img> placed inside it. -->
 
 ![Trailer: the voice assistant, the LED ring animations and the Home Assistant controls](docs/trailer.webp)
 
-> **Status: stable (v1.2.0).** Wake word, STT/TTS, clean playback and the LED
+> **Branch status: experimental 48 kHz + SpeexDSP AEC.** See [docs/AEC-48KHZ.md](docs/AEC-48KHZ.md) for provenance, tests and limitations.
+> Upstream stable release information follows: **v1.2.0.** Wake word, STT/TTS, clean playback and the LED
 > ring are confirmed on-device. Full docs are in the
 > [Wiki](https://github.com/MichalZaniewicz/esphome-waveshare-esp32-s3-audio-va/wiki);
 > the release history is in [CHANGELOG.md](CHANGELOG.md).
@@ -65,7 +66,7 @@ https://github.com/user-attachments/assets/3236cd4f-7184-4eee-a16a-0db6fe1603a3
 
 ## Quick start
 
-> Requires **ESPHome 2026.8.0+**.
+> Requires **ESPHome 2026.10.2+** for this branch.
 
 1. Copy `secrets.example.yaml` to `secrets.yaml` and fill in your Wi-Fi. The
    native API is unencrypted by default; enable encryption in `base/core.yaml`
@@ -85,7 +86,7 @@ https://github.com/user-attachments/assets/3236cd4f-7184-4eee-a16a-0db6fe1603a3
 5. Say "Alexa". The ring should go violet. To use another wake word, change
    **Wake word** on the device page (see [Wake words](#wake-words)).
 
-The example config tracks `main` with `refresh: 0s`, so every build fetches the
+The example config tracks `codex/aec-speexdsp-48khz` in this fork with `refresh: 0s`, so every build fetches the
 latest version. To update, just run `esphome run waveshare-va.yaml` (or
 **Install** in the dashboard). After upgrading ESPHome itself, run
 `esphome clean waveshare-va.yaml` first if the build fails.

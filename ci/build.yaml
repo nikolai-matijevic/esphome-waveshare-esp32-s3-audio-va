@@ -4,6 +4,7 @@
 # The workflow copies secrets.example.yaml to ci/secrets.yaml before building.
 
 substitutions:
+  audio_components_source: ../components
   name: waveshare-va-ci
   friendly_name: "Waveshare Voice CI"
 

@@ -17,6 +17,7 @@
 ###############################################################################
 
 substitutions:
+  audio_components_source: github://nikolai-matijevic/esphome-waveshare-esp32-s3-audio-va@codex/aec-speexdsp-48khz
   name: waveshare-va
   friendly_name: "Waveshare Voice"
 
@@ -115,7 +116,7 @@ substitutions:
 esphome:
   name: ${name}
   friendly_name: ${friendly_name}
-  min_version: 2026.8.0     # esp32_rmt_led_strip channel_colors
+  min_version: 2026.10.2    # tested ESPHome version for the 48 kHz AEC path
   on_boot:
     # Publish a "no timer" placeholder and paint the ring as early as we can, so
     # the device shows life while Wi-Fi/API are still coming up.
@@ -194,11 +195,7 @@ esphome:
 # pull request that adds TDM to ESPHome (esphome/esphome#18954, merged after
 # 2026.10); drop it once the minimum ESPHome version ships it.
 external_components:
-  - source:
-      type: git
-      url: https://github.com/MichalZaniewicz/esphome-aec
-      ref: 3513103b486dc4290593d8fc3c22932d2706e4ff
-      path: src/esphome
+  - source: ${audio_components_source}
     components: [aec_speexdsp]
   - source:
       type: git
@@ -352,7 +349,7 @@ time:
 # The DAC and ADC share MCLK/BCLK/LRCLK, with one data line each way. Stock
 # i2s_audio cannot run one bus full-duplex ("Parent bus is busy"), and its
 # two-bus workaround gives no synchronised echo reference. aec_speexdsp owns
-# one I2S port in four-slot TDM as the master: every 16 kHz frame carries the
+# one I2S port in four-slot TDM as the master: every 48 kHz frame carries the
 # ES7210's four inputs (two mics, the MIC3 speaker loopback, an unused MIC4)
 # in and the DAC's samples out, all on one clock. That shared clock is what
 # lets the canceller line the loopback up against the mic.
@@ -361,7 +358,7 @@ audio_adc:
     id: adc_mic
     i2c_id: internal_i2c
     bits_per_sample: 16bit
-    sample_rate: 16000
+    sample_rate: 48000
     tdm: true
     # MIC1/MIC2 are the microphones (runtime gain: `mic_gain_db`, applied by
     # the apply_mic_gain script); MIC3 is the speaker loopback, fixed at
@@ -377,11 +374,12 @@ audio_dac:
     id: es8311_dac
     i2c_id: internal_i2c
     bits_per_sample: 16bit
-    sample_rate: 16000
+    sample_rate: 48000
     use_mclk: true
 
 aec_speexdsp:
   id: aec
+  physical_sample_rate: 48000
   audio_adc: adc_mic
   mclk_pin: ${i2s_mclk}
   bclk_pin: ${i2s_bclk}
@@ -433,6 +431,7 @@ microphone:
 
 speaker:
   - platform: aec_speexdsp
+    sample_rate: 48000
     id: aec_speaker
     aec_speexdsp_id: aec
     num_channels: 1
@@ -474,13 +473,13 @@ media_player:
       speaker: announcement_resampling_speaker
       format: FLAC              # cheapest codec for the S3
       num_channels: 1           # stereo is pointless for announcements
-      # The TDM bus runs at 16 kHz; asking HA for 16 kHz saves resampling.
-      sample_rate: 16000
+      # Playback stays at 48 kHz; capture is downsampled to 16 kHz before AEC.
+      sample_rate: 48000
     media_pipeline:
       speaker: media_resampling_speaker
       format: FLAC
       num_channels: 1           # mono hardware, one speaker
-      sample_rate: 16000
+      sample_rate: 48000
     on_announcement:
       - mixer_speaker.apply_ducking:
           id: media_mixing_input
